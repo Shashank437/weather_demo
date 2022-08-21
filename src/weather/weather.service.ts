@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { map, Observable } from 'rxjs';
 import { Repository } from 'typeorm';
@@ -16,60 +16,106 @@ export class WeatherService {
     private readonly cityRepository: Repository<City>,
   ) {}
 
-  create(cityDto: CityDto): Promise<City> {
-    const city: City = new City();
-    city.city_name = cityDto.name;
-    return this.cityRepository.save(city);
+  async create(cityDto: CityDto): Promise<City> {
+    if (!cityDto) {
+      throw new HttpException('plzz provide data', HttpStatus.BAD_REQUEST);
+    } else if (await this.findByCity(cityDto.name)) {
+      throw new HttpException(
+        'the required city already exists',
+        HttpStatus.CONFLICT,
+      );
+    } else {
+      const city: City = new City();
+      city.city_name = cityDto.name;
+      return await this.cityRepository.save(city);
+    }
   }
 
-  findOne(id: number): Promise<City> {
-    return this.cityRepository.findOne({ where: { id } });
+  async findOne(id: number): Promise<City> {
+    const data = await this.cityRepository.findOne({ where: { id } });
+    if (!data) {
+      throw new HttpException(
+        'the required city is not found!',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return data;
   }
 
-  findAll(): Promise<City[]> {
+  async findAll(): Promise<City[]> {
     return this.cityRepository.find();
   }
 
   async update(id: number, cityDto: CityDto) {
-    const city: City = new City();
-    city.city_name = cityDto.name;
-    const updatedCity = await this.cityRepository
-      .createQueryBuilder()
-      .update(City, city)
-      .where('city.id = :id', { id: id })
-      .returning('*')
-      .updateEntity(true)
-      .execute();
-    return updatedCity.raw[0];
-  }
-
-  remove(id: number) {
-    return this.cityRepository.delete(id);
-  }
-
-  findByCity(name: string) {
-    return this.cityRepository.findOne({ where: { city_name: name } });
-  }
-
-  getWeatherInfo(city: string): Observable<weatherInfoDto> {
-    const res = this.httpService
-      .get(
-        `http://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${this.apiKey}`,
-      )
-      .pipe(map((response) => response.data))
-      .pipe(
-        map((data) => {
-          return {
-            weather: data.weather,
-            name: data.name,
-            main: data.main,
-            visibility: data.visibility,
-            wind: data.wind,
-            clouds: data.clouds,
-            sys: data.sys,
-          };
-        }),
+    const old_data = await this.cityRepository.findOne({ where: { id } });
+    if (!old_data) {
+      throw new HttpException(
+        'the required city is not found!',
+        HttpStatus.NOT_FOUND,
       );
-    return res;
+    } else if (!cityDto) {
+      throw new HttpException('plzz provide data', HttpStatus.BAD_REQUEST);
+    } else {
+      const city: City = new City();
+      city.city_name = cityDto.name;
+      const updatedCity = await this.cityRepository
+        .createQueryBuilder()
+        .update(City, city)
+        .where('city.id = :id', { id: id })
+        .returning('*')
+        .updateEntity(true)
+        .execute();
+      return updatedCity.raw[0];
+    }
+  }
+
+  async remove(id: number) {
+    const data = await this.cityRepository.delete(id);
+    if (data.affected == 0) {
+      throw new HttpException(
+        'Trying to delete something which not exists',
+        HttpStatus.BAD_REQUEST,
+      );
+    } else {
+      return data;
+    }
+  }
+
+  async findByCity(name: string): Promise<City> {
+    const data = await this.cityRepository.findOne({
+      where: { city_name: name },
+    });
+    return data;
+  }
+
+  async getWeatherInfo(id: number): Promise<Observable<weatherInfoDto>> {
+    const old_data = await this.cityRepository.findOne({ where: { id } });
+    if (!old_data) {
+      throw new HttpException(
+        'weather data of the required city is not found!',
+        HttpStatus.NOT_FOUND,
+      );
+    } else {
+      const city = old_data.city_name;
+      const res = this.httpService
+        .get(
+          `http://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${this.apiKey}`,
+        )
+        .pipe(map((response) => response.data))
+        .pipe(
+          map((data) => {
+            return {
+              weather: data.weather,
+              name: data.name,
+              main: data.main,
+              visibility: data.visibility,
+              wind: data.wind,
+              clouds: data.clouds,
+              sys: data.sys,
+            };
+          }),
+        );
+      return res;
+    }
   }
 }

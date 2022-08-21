@@ -3,15 +3,11 @@ import {
   Controller,
   Delete,
   Get,
-  HttpStatus,
   Param,
   Patch,
   Post,
-  Res,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Response } from 'express';
-import { lastValueFrom } from 'rxjs';
 import { CityDto } from './dto/create_city.dto';
 import { WeatherService } from './weather.service';
 
@@ -20,61 +16,32 @@ import { WeatherService } from './weather.service';
 export class WeatherController {
   constructor(private readonly cityService: WeatherService) {}
   @Post()
-  async create(@Body() cityDto: CityDto, @Res() res: Response) {
-    const oldCity = await this.cityService.findByCity(cityDto.name);
-    if (oldCity == null) {
-      if (cityDto == null) {
-        res.status(HttpStatus.BAD_REQUEST).send();
-      } else {
-        res.status(HttpStatus.OK).send(await this.cityService.create(cityDto));
-      }
-    } else {
-      res.status(HttpStatus.CONFLICT).send();
-    }
+  create(@Body() cityDto: CityDto) {
+    return this.cityService.create(cityDto);
   }
+
   @Get()
   findAll() {
     return this.cityService.findAll();
   }
+
   @Get(':id')
-  async findOne(@Param('id') id: number, @Res() res: Response) {
-    const data = await this.cityService.findOne(id);
-    if (data == null) {
-      res.status(HttpStatus.NOT_FOUND).send();
-    } else {
-      res.status(HttpStatus.OK).send(data);
-    }
+  findOne(@Param('id') id: number) {
+    return this.cityService.findOne(id);
   }
+
   @Patch(':id')
-  async update(
-    @Body() cityDto: CityDto,
-    @Param('id') id: number,
-    @Res() res: Response,
-  ) {
-    const oldCity = await this.cityService.findOne(id);
-    if (oldCity != null) {
-      res
-        .status(HttpStatus.OK)
-        .send(await this.cityService.update(id, cityDto));
-    } else {
-      res.status(HttpStatus.NOT_FOUND).send();
-    }
+  update(@Body() cityDto: CityDto, @Param('id') id: number) {
+    return this.cityService.update(id, cityDto);
   }
+
   @Delete(':id')
   delete(@Param('id') id: number) {
     return this.cityService.remove(id);
   }
+
   @Get(':id/weather')
-  async getWeatherData(@Param('id') id: number, @Res() res: Response) {
-    const city = await this.cityService.findOne(id);
-    if (city != null) {
-      res
-        .status(HttpStatus.OK)
-        .send(
-          await lastValueFrom(this.cityService.getWeatherInfo(city.city_name)),
-        );
-    } else {
-      res.status(HttpStatus.BAD_REQUEST).send();
-    }
+  getWeatherData(@Param('id') id: number) {
+    return this.cityService.getWeatherInfo(id);
   }
 }

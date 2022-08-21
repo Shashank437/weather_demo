@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
+import { lastValueFrom } from 'rxjs';
 import { CityDto } from './dto/create_city.dto';
 import { WeatherService } from './weather.service';
 
@@ -62,5 +63,18 @@ export class WeatherController {
   @Delete(':id')
   delete(@Param('id') id: number) {
     return this.cityService.remove(id);
+  }
+  @Get(':id/weather')
+  async getWeatherData(@Param('id') id: number, @Res() res: Response) {
+    const city = await this.cityService.findOne(id);
+    if (city != null) {
+      res
+        .status(HttpStatus.OK)
+        .send(
+          await lastValueFrom(this.cityService.getWeatherInfo(city.city_name)),
+        );
+    } else {
+      res.status(HttpStatus.BAD_REQUEST).send();
+    }
   }
 }

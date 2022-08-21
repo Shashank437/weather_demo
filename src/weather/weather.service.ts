@@ -1,12 +1,17 @@
+import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { map, Observable } from 'rxjs';
 import { Repository } from 'typeorm';
 import { CityDto } from './dto/create_city.dto';
+import { weatherInfoDto } from './dto/weather.dto';
 import { City } from './entity/city.entity';
 
 @Injectable()
 export class WeatherService {
+  private apiKey = process.env.API_KEY;
   constructor(
+    private readonly httpService: HttpService,
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
   ) {}
@@ -44,5 +49,27 @@ export class WeatherService {
 
   findByCity(name: string) {
     return this.cityRepository.findOne({ where: { city_name: name } });
+  }
+
+  getWeatherInfo(city: string): Observable<weatherInfoDto> {
+    const res = this.httpService
+      .get(
+        `http://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${this.apiKey}`,
+      )
+      .pipe(map((response) => response.data))
+      .pipe(
+        map((data) => {
+          return {
+            weather: data.weather,
+            name: data.name,
+            main: data.main,
+            visibility: data.visibility,
+            wind: data.wind,
+            clouds: data.clouds,
+            sys: data.sys,
+          };
+        }),
+      );
+    return res;
   }
 }

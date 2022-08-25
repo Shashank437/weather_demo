@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WeatherController } from './weather.controller';
-import { Response } from 'express';
 import { WeatherService } from './weather.service';
 import { HttpModule } from '@nestjs/axios';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { City } from './entity/city.entity';
+import { lastValueFrom } from 'rxjs';
 
 const createMock = jest.fn((dto: any) => {
   return dto;
@@ -32,20 +32,6 @@ const mockRepository = new MockRepository();
 
 describe('WeatherController', () => {
   let controller: WeatherController;
-  let responseObject = {};
-  let status;
-  const response: Partial<Response> = {
-    send: jest.fn().mockImplementation((result) => {
-      responseObject = result;
-    }),
-    status: jest.fn().mockImplementation((result) => {
-      status = result;
-      send: () => {
-        return 'Hello';
-      };
-    }),
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [HttpModule],
@@ -64,5 +50,15 @@ describe('WeatherController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  it('should return a object defined', async () => {
+    expect(await controller.findOne(1)).toEqual({ name: 'Mumbai', id: 1 });
+  });
+  it('should return a object defined', async () => {
+    expect(lastValueFrom(await controller.getWeatherData(1))).toEqual({
+      name: 'Mumbai',
+      id: 1,
+    });
   });
 });

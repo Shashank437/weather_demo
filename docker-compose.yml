@@ -1,0 +1,65 @@
+version: "3.8"
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    environment:
+      - NGINX_PORT=${NGINX_PORT}
+      - BACKEND_PORT=${BACKEND_PORT}
+    ports:
+      - ${NGINX_PORT}:${NGINX_PORT}
+    depends_on:
+      - api
+      - postgres
+    networks:
+      - nestjs-network
+
+  api:
+    build:
+      context: .
+      target: "${NODE_ENV}"
+      dockerfile: ./Dockerfile
+    command: npm run start:"${NODE_ENV_SCRIPT}"  
+    volumes:
+      - ./:/usr/src/app
+    depends_on:
+      - postgres
+    networks:
+      - nestjs-network    
+
+  postgres:
+    environment: 
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+      PG_DATA: /var/lib/postgresql/data
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    container_name: postgresdb    
+    image: postgres
+    ports:
+      - "35000:5342"
+    networks:
+      - nestjs-network
+
+  pgadmin:
+    links:
+      - "postgres:postgresdb"
+    container_name: pgadmin4_container
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_LISTEN_PORT: 80
+    volumes:
+      - ./pgdata/pgadmin:/var/lib/pgadmin  
+    ports:
+      - "5050:80"
+    networks:
+      - nestjs-network      
+
+networks:
+  nestjs-network:  

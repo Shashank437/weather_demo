@@ -1,6 +1,8 @@
 # compiled output
 /dist
+/init
 /node_modules
+/pgdata
 
 # Logs
 logs
